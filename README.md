@@ -17,3 +17,7 @@ A projekt helyi futtatásához kövesd az alábbi lépéseket:
 ```bash
 git clone [https://github.com/KovacsGyuri/Stock-market-forecast.git](https://github.com/KovacsGyuri/Stock-market-forecast.git)
 cd Stock-market-forecast
+
+### Futtatás lokálisan
+Az alkalmazás elindítása után a következő címen érhető el a böngészőben:
+> http://127.0.0.1:8000
