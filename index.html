@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>Tőzsdei Előrejelző</title>
+    <!-- Chart.js a grafikonokhoz -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f4f4f9; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        canvas { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Részvény Előrejelzés</h1>
+        <p>Válassz egy céget a vizualizációhoz:</p>
+        <button onclick="loadStock('AAPL')">Apple (AAPL)</button>
+        <button onclick="loadStock('GOOGL')">Google (GOOGL)</button>
+        
+        <canvas id="stockChart" width="400" height="200"></canvas>
+    </div>
+
+    <script>
+        let myChart = null;
+
+        async function loadStock(symbol) {
+            const response = await fetch(`/api/stock/${symbol}`);
+            const data = await response.json();
+
+            const ctx = document.getElementById('stockChart').getContext('2d');
+            
+            if (myChart) {
+                myChart.destroy(); // Előző grafikon törlése frissítés előtt
+            }
+
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['1. Nap', '2. Nap', '3. Nap', '4. Nap', '5. Nap', 'Előrejelzés 1', 'Előrejelzés 2'],
+                    datasets: [{
+                        label: `${data.symbol} Árfolyam & Predikció`,
+                        data: [...data.prices, ...data.prediction],
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1
+                    }]
+                }
+            });
+        }
+    </script>
+</body>
+</html>
