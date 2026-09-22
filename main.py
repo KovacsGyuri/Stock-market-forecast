@@ -10,7 +10,7 @@ templates = Jinja2Templates(directory="templates")
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     # Itt jelenítjük meg a főoldalt
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="index.html")
 
 @app.get("/api/stock/{symbol}")
 async def get_stock_data(symbol: str):
