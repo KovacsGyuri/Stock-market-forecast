@@ -3,21 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <title>Tőzsdei Előrejelző</title>
-    <!-- Chart.js a grafikonokhoz -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 40px; background: #f4f4f9; }
-        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+        .search-box { margin: 20px 0; display: flex; gap: 10px; align-items: center; }
+        input, select, button { padding: 10px; font-size: 14px; border-radius: 4px; border: 1px solid #ccc; }
+        button { background: #4f46e5; color: white; border: none; cursor: pointer; }
+        button:hover { background: #4338ca; }
+        .button-group { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
         canvas { margin-top: 20px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Részvény Előrejelzés <span style="font-size: 0.6em; color: #666;">(Teszt verzió)</span></h1>
-        <p>Válassz egy céget a vizualizációhoz:</p>
-        <button onclick="loadStock('AAPL')">Apple (AAPL)</button>
-        <button onclick="loadStock('GOOGL')">Google (GOOGL)</button>
-        <button onclick="loadStock('MSFT')">Microsoft (MSFT)</button>
+        <p>Írd be a keresett részvény szimbólumát vagy válassz az alábbi gyorsgombok közül:</p>
+        
+        <div class="search-box">
+            <input type="text" id="stockSymbol" placeholder="Pl. TSLA, OTP.BD" value="AAPL">
+            <select id="forecastDays">
+                <option value="7">7 napos előrejelzés</option>
+                <option value="30">30 napos előrejelzés</option>
+            </select>
+            <button onclick="handleSearch()">Elemzés betöltése</button>
+        </div>
+
+        <!-- Gyorsválasztó gombok az összes kedvelt részvényhez -->
+        <div class="button-group">
+            <button onclick="quickSelect('AAPL')">Apple (AAPL)</button>
+            <button onclick="quickSelect('GOOGL')">Google (GOOGL)</button>
+            <button onclick="quickSelect('MSFT')">Microsoft (MSFT)</button>
+            <button onclick="quickSelect('TSLA')">Tesla (TSLA)</button>
+            <button onclick="quickSelect('AMZN')">Amazon (AMZN)</button>
+            <button onclick="quickSelect('NVDA')">NVIDIA (NVDA)</button>
+            <button onclick="quickSelect('OTP.BD')">OTP (OTP.BD)</button>
+            <button onclick="quickSelect('MOL.BD')">MOL (MOL.BD)</button>
+            <button onclick="quickSelect('RICHTER.BD')">Richter (RICHTER.BD)</button>
+            <button onclick="quickSelect('BTC-USD')">Bitcoin (BTC-USD)</button>
+        </div>
         
         <canvas id="stockChart" width="400" height="200"></canvas>
     </div>
@@ -25,29 +49,64 @@
     <script>
         let myChart = null;
 
-        async function loadStock(symbol) {
-            const response = await fetch(`/api/stock/${symbol}`);
-            const data = await response.json();
-
-            const ctx = document.getElementById('stockChart').getContext('2d');
-            
-            if (myChart) {
-                myChart.destroy(); // Előző grafikon törlése frissítés előtt
-            }
-
-            myChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: ['1. Nap', '2. Nap', '3. Nap', '4. Nap', '5. Nap', 'Előrejelzés 1', 'Előrejelzés 2'],
-                    datasets: [{
-                        label: `${data.symbol} Árfolyam & Predikció`,
-                        data: [...data.prices, ...data.prediction],
-                        borderColor: 'rgb(75, 192, 192)',
-                        tension: 0.1
-                    }]
-                }
-            });
+        function quickSelect(symbol) {
+            document.getElementById('stockSymbol').value = symbol;
+            handleSearch();
         }
+
+        function handleSearch() {
+            const symbol = document.getElementById('stockSymbol').value.trim();
+            const days = document.getElementById('forecastDays').value;
+            if (symbol) {
+                loadStock(symbol, days);
+            }
+        }
+
+        async function loadStock(symbol, days) {
+            try {
+                const response = await fetch(`/api/stock/${symbol}?days=${days}`);
+                if (!response.ok) {
+                    alert('Nem található adat ehhez a szimbólumhoz!');
+                    return;
+                }
+                const data = await response.json();
+
+                const ctx = document.getElementById('stockChart').getContext('2d');
+                
+                if (myChart) {
+                    myChart.destroy();
+                }
+
+                myChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: [...data.history_labels, ...data.prediction_labels],
+                        datasets: [
+                            {
+                                label: `${data.symbol} Múltbeli árak`,
+                                data: [...data.prices, ...Array(data.prediction.length).fill(null)],
+                                borderColor: 'rgb(75, 192, 192)',
+                                backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                                tension: 0.1
+                            },
+                            {
+                                label: `${data.symbol} Előrejelzés (${days} nap)`,
+                                data: [...Array(data.prices.length - 1).fill(null), data.prices[data.prices.length - 1], ...data.prediction],
+                                borderColor: 'rgb(255, 99, 132)',
+                                borderDash: [5, 5],
+                                backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                                tension: 0.1
+                            }
+                        ]
+                    }
+                });
+            } catch (error) {
+                console.error('Hiba:', error);
+            }
+        }
+
+        // Oldal betöltésekor betölti az alapértelmezettet
+        handleSearch();
     </script>
 </body>
 </html>
