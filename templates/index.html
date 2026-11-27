@@ -5,14 +5,89 @@
     <title>Tőzsdei Előrejelző</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; background: #f4f4f9; }
-        .container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
-        .search-box { margin: 20px 0; display: flex; gap: 10px; align-items: center; }
-        input, select, button { padding: 10px; font-size: 14px; border-radius: 4px; border: 1px solid #ccc; }
-        button { background: #4f46e5; color: white; border: none; cursor: pointer; }
-        button:hover { background: #4338ca; }
-        .button-group { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
-        canvas { margin-top: 20px; }
+        :root {
+            --bg-page: #0f172a;
+            --bg-card: #1e293b;
+            --bg-input: #0f172a;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --accent: #4f46e5;
+            --accent-hover: #4338ca;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            margin: 40px;
+            background: var(--bg-page);
+            color: var(--text-main);
+        }
+
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: var(--bg-card);
+            padding: 25px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+        }
+
+        h1 {
+            margin-top: 0;
+            color: var(--text-main);
+        }
+
+        p {
+            color: var(--text-muted);
+        }
+
+        .search-box {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        input, select, button {
+            padding: 10px 12px;
+            font-size: 14px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+
+        input, select {
+            background: var(--bg-input);
+            color: var(--text-main);
+        }
+
+        input::placeholder {
+            color: var(--text-muted);
+        }
+
+        button {
+            background: var(--accent);
+            color: #ffffff;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+        }
+
+        button:hover {
+            background: var(--accent-hover);
+        }
+
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        canvas {
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
@@ -62,6 +137,45 @@
             }
         }
 
+        function formatDateOffset(offsetDays, baseDate = new Date()) {
+            const d = new Date(baseDate);
+            d.setDate(baseDate.getDate() + offsetDays);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function buildChartLabels(historyLabels = [], predictionLabels = []) {
+            const today = new Date();
+            const pastCount = historyLabels.length;
+
+            const formattedHistory = historyLabels.map((label, index) => {
+                // Ha már YYYY-MM-DD formátumú dátum, megtartjuk
+                if (/^\d{4}-\d{2}-\d{2}/.test(String(label))) {
+                    return String(label).slice(0, 10);
+                }
+                const offset = -(pastCount - 1 - index);
+                return formatDateOffset(offset, today);
+            });
+
+            const formattedPredictions = predictionLabels.map((label, index) => {
+                if (/^\d{4}-\d{2}-\d{2}/.test(String(label))) {
+                    return String(label).slice(0, 10);
+                }
+                const offset = index + 1;
+                return formatDateOffset(offset, today);
+            });
+
+            return [...formattedHistory, ...formattedPredictions];
+        }
+
+        function getUnitForTicker(symbol = '') {
+            const upper = symbol.toUpperCase();
+            if (upper.endsWith('.BD')) return 'Ft';
+            return 'USD';
+        }
+
         async function loadStock(symbol, days) {
             try {
                 const response = await fetch(`/api/stock/${symbol}?days=${days}`);
@@ -72,7 +186,9 @@
                 const data = await response.json();
 
                 const ctx = document.getElementById('stockChart').getContext('2d');
-                
+                const labels = buildChartLabels(data.history_labels, data.prediction_labels);
+                const unit = getUnitForTicker(data.symbol || symbol);
+
                 if (myChart) {
                     myChart.destroy();
                 }
@@ -80,13 +196,13 @@
                 myChart = new Chart(ctx, {
                     type: 'line',
                     data: {
-                        labels: [...data.history_labels, ...data.prediction_labels],
+                        labels: labels,
                         datasets: [
                             {
                                 label: `${data.symbol} Múltbeli árak`,
                                 data: [...data.prices, ...Array(data.prediction.length).fill(null)],
                                 borderColor: 'rgb(75, 192, 192)',
-                                backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                                backgroundColor: 'rgba(75, 192, 192, 0.12)',
                                 tension: 0.1
                             },
                             {
@@ -94,10 +210,60 @@
                                 data: [...Array(data.prices.length - 1).fill(null), data.prices[data.prices.length - 1], ...data.prediction],
                                 borderColor: 'rgb(255, 99, 132)',
                                 borderDash: [5, 5],
-                                backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                                backgroundColor: 'rgba(255, 99, 132, 0.12)',
                                 tension: 0.1
                             }
                         ]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    color: '#e2e8f0'
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (context) {
+                                        const val = context.parsed.y;
+                                        if (val === null || val === undefined) return '';
+                                        const formatted = Number(val).toLocaleString('hu-HU', {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2
+                                        });
+                                        return `${context.dataset.label}: ${formatted} ${unit}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                ticks: {
+                                    color: '#cbd5e1',
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                },
+                                grid: {
+                                    color: 'rgba(148, 163, 184, 0.15)'
+                                }
+                            },
+                            y: {
+                                ticks: {
+                                    color: '#cbd5e1',
+                                    callback: function (value) {
+                                        const formatted = Number(value).toLocaleString('hu-HU', {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2
+                                        });
+                                        return `${formatted} ${unit}`;
+                                    }
+                                },
+                                grid: {
+                                    color: 'rgba(148, 163, 184, 0.15)'
+                                }
+                            }
+                        }
                     }
                 });
             } catch (error) {
